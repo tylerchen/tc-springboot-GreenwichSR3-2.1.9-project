@@ -8,24 +8,28 @@
 package org.iff.springboot.config;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.shiro.cache.ehcache.EhCacheManager;
+import org.apache.shiro.ShiroException;
+import org.apache.shiro.cache.Cache;
+import org.apache.shiro.cache.CacheException;
 import org.apache.shiro.codec.Base64;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.realm.SimpleAccountRealm;
 import org.apache.shiro.spring.LifecycleBeanPostProcessor;
 import org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor;
 import org.apache.shiro.spring.web.ShiroFilterFactoryBean;
+import org.apache.shiro.util.Destroyable;
+import org.apache.shiro.util.Initializable;
 import org.apache.shiro.web.mgt.CookieRememberMeManager;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
 import org.apache.shiro.web.servlet.SimpleCookie;
 import org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * ShiroConfig
@@ -88,18 +92,16 @@ public class ShiroConfig {
      *
      * @return
      */
-    @Bean(name = "ehCacheManager")
+    @Bean(name = "shiroEhCacheManager")
     @DependsOn("lifecycleBeanPostProcessor")
-    public EhCacheManager ehCacheManager() {
+    public EhCacheManager shiroEhCacheManager(CacheManager cacheManager) {
         log.info("ShiroConfiguration.getEhCacheManager()");
-        EhCacheManager cacheManager = new EhCacheManager();
-        cacheManager.setCacheManagerConfigFile("classpath:ehcache-shiro.xml");
-        return cacheManager;
+        return new EhCacheManager(cacheManager);
     }
 
     @Bean(name = "adminRealm")
     @DependsOn("lifecycleBeanPostProcessor")
-    public SimpleAccountRealm adminRealm(EhCacheManager ehCacheManager) {
+    public SimpleAccountRealm adminRealm(EhCacheManager shiroEhCacheManager) {
         SimpleAccountRealm realm = new SimpleAccountRealm();
         //为确保密码安全，可以定义hash算法，（此处未做任何hash，直接用密码匹配）
         /*HashedCredentialsMatcher matcher = new HashedCredentialsMatcher();
@@ -107,7 +109,7 @@ public class ShiroConfig {
         matcher.setHashIterations(2);
         matcher.setStoredCredentialsHexEncoded(true);
         adminRealm.setCredentialsMatcher(matcher);*/
-        realm.setCacheManager(ehCacheManager);
+        realm.setCacheManager(shiroEhCacheManager);
         return realm;
     }
 
@@ -144,19 +146,19 @@ public class ShiroConfig {
 
     /**
      * @param realm
-     * @param ehCacheManager
+     * @param shiroEhCacheManager
      * @param cookieRememberMeManager
      * @return
-     * @DependOn :在初始化 defaultWebSecurityManager 实例前 强制先初始化 adminRealm ，ehCacheManager。。。。。
+     * @DependOn :在初始化 defaultWebSecurityManager 实例前 强制先初始化 adminRealm ，shiroEhCacheManager。。。。。
      */
 
     @Bean(name = "securityManager")
-    @DependsOn({"adminRealm", "ehCacheManager", "cookieRememberMeManager"})
-    public DefaultWebSecurityManager getDefaultWebSecurityManager(SimpleAccountRealm realm, EhCacheManager ehCacheManager, CookieRememberMeManager cookieRememberMeManager) {
+    @DependsOn({"adminRealm", "shiroEhCacheManager", "cookieRememberMeManager"})
+    public DefaultWebSecurityManager getDefaultWebSecurityManager(SimpleAccountRealm realm, EhCacheManager shiroEhCacheManager, CookieRememberMeManager cookieRememberMeManager) {
         DefaultWebSecurityManager defaultWebSecurityManager = new DefaultWebSecurityManager();
         //设置realm.
         defaultWebSecurityManager.setRealm(realm);
-        defaultWebSecurityManager.setCacheManager(ehCacheManager);
+        defaultWebSecurityManager.setCacheManager(shiroEhCacheManager);
         defaultWebSecurityManager.setRememberMeManager(cookieRememberMeManager);
         return defaultWebSecurityManager;
     }
@@ -184,5 +186,141 @@ public class ShiroConfig {
         AuthorizationAttributeSourceAdvisor authorizationAttributeSourceAdvisor = new AuthorizationAttributeSourceAdvisor();
         authorizationAttributeSourceAdvisor.setSecurityManager(securityManager);
         return authorizationAttributeSourceAdvisor;
+    }
+
+    @Slf4j
+    public static class EhCache<K, V> implements Cache<K, V> {
+
+        private org.springframework.cache.Cache cache;
+
+        public EhCache(org.springframework.cache.Cache cache) {
+            this.cache = cache;
+        }
+
+        public V get(K key) throws CacheException {
+            try {
+                if (log.isTraceEnabled()) {
+                    log.trace("Getting object from cache [" + cache.getName() + "] for key [" + key + "]");
+                }
+                if (key == null) {
+                    return null;
+                } else {
+                    V value = (V) cache.get(key).get();
+                    if (value == null) {
+                        if (log.isTraceEnabled()) {
+                            log.trace("Element for [" + key + "] is null.");
+                        }
+                        return null;
+                    } else {
+                        //noinspection unchecked
+                        return value;
+                    }
+                }
+            } catch (Throwable t) {
+                throw new CacheException(t);
+            }
+        }
+
+        public V put(K key, V value) throws CacheException {
+            if (log.isTraceEnabled()) {
+                log.trace("Putting object in cache [" + cache.getName() + "] for key [" + key + "]");
+            }
+            try {
+                V previous = get(key);
+                cache.put(key, value);
+                return previous;
+            } catch (Throwable t) {
+                throw new CacheException(t);
+            }
+        }
+
+        public V remove(K key) throws CacheException {
+            if (log.isTraceEnabled()) {
+                log.trace("Removing object from cache [" + cache.getName() + "] for key [" + key + "]");
+            }
+            try {
+                V previous = get(key);
+                cache.evict(key);
+                return previous;
+            } catch (Throwable t) {
+                throw new CacheException(t);
+            }
+        }
+
+        public void clear() throws CacheException {
+            if (log.isTraceEnabled()) {
+                log.trace("Clearing all objects from cache [" + cache.getName() + "]");
+            }
+            try {
+                cache.clear();
+            } catch (Throwable t) {
+                throw new CacheException(t);
+            }
+        }
+
+        public int size() {
+            log.warn("This operation not support in ehcache 3.");
+            return -1;
+        }
+
+        public Set<K> keys() {
+//            try {
+//                @SuppressWarnings({"unchecked"})
+//                List<K> keys = cache.getKeys();
+//                if (!isEmpty(keys)) {
+//                    return Collections.unmodifiableSet(new LinkedHashSet<K>(keys));
+//                } else {
+//                    return Collections.emptySet();
+//                }
+//            } catch (Throwable t) {
+//                throw new CacheException(t);
+//            }
+            log.warn("This operation not support in ehcache 3.");
+            return Collections.emptySet();
+        }
+
+        public Collection<V> values() {
+//            try {
+//                @SuppressWarnings({"unchecked"})
+//                List<K> keys = cache.getKeys();
+//                if (!isEmpty(keys)) {
+//                    List<V> values = new ArrayList<V>(keys.size());
+//                    for (K key : keys) {
+//                        V value = get(key);
+//                        if (value != null) {
+//                            values.add(value);
+//                        }
+//                    }
+//                    return Collections.unmodifiableList(values);
+//                } else {
+//                    return Collections.emptyList();
+//                }
+//            } catch (Throwable t) {
+//                throw new CacheException(t);
+//            }
+            log.warn("This operation not support in ehcache 3.");
+            return Collections.emptyList();
+        }
+    }
+
+    public static class EhCacheManager implements org.apache.shiro.cache.CacheManager, Initializable, Destroyable {
+
+        private org.springframework.cache.CacheManager cacheManager;
+
+        public EhCacheManager(org.springframework.cache.CacheManager cacheManager) {
+            this.cacheManager = cacheManager;
+        }
+
+        public <K, V> Cache<K, V> getCache(String s) throws CacheException {
+            return new EhCache<>(cacheManager.getCache(s));
+        }
+
+        public void destroy() throws Exception {
+            // to nothing, management by spring cache
+        }
+
+        public void init() throws ShiroException {
+            // do nothing, init by spring cache
+        }
     }
 }

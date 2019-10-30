@@ -62,7 +62,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/asset/**").addResourceLocations("classpath:/asset/");
+        // 解决 swagger-ui.html 404报错
+        registry.addResourceHandler("/asset/**", "/swagger-ui.html").addResourceLocations("classpath:/asset/", "classpath:/META-INF/resources/");
     }
 
     @Override

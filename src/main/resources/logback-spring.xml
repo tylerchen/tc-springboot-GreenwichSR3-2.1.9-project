@@ -27,7 +27,13 @@
         </encoder>
     </appender>
 
-    <root level="info">
+    <logger name="org.apache.shiro">
+        <level value="ERROR"/>
+        <appender-ref ref="console"/>
+        <appender-ref ref="logFile"/>
+    </logger>
+
+    <root level="INFO">
         <appender-ref ref="console"/>
         <appender-ref ref="logFile"/>
     </root>
