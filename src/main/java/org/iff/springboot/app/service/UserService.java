@@ -7,6 +7,7 @@
  ******************************************************************************/
 package org.iff.springboot.app.service;
 
+import org.iff.springboot.app.common.BaseService;
 import org.iff.springboot.app.dao.UserDao;
 import org.iff.springboot.app.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,12 +23,10 @@ import java.util.List;
  * auto generate by qdp.
  */
 @Service
-public class UserService {
+public class UserService extends BaseService<User, UserDao> {
     @Autowired
-    UserDao dao;
-
-    public List<User> findAll() {
-        return dao.findAll();
+    void setDao(UserDao dao) {
+        super.dao = dao;
     }
 
     public User get(Long id) {
@@ -44,10 +43,6 @@ public class UserService {
 
     public List<User> findByGender(String gender) {
         return dao.findByGenderOrderByUserNameAsc(gender);
-    }
-
-    public User save(User user) {
-        return dao.save(user);
     }
 
 }

@@ -8,6 +8,8 @@
 package org.iff.springboot.app.controller;
 
 import lombok.extern.slf4j.Slf4j;
+import org.iff.springboot.app.common.BaseController;
+import org.iff.springboot.app.common.ResultBean;
 import org.iff.springboot.app.entity.User;
 import org.iff.springboot.app.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,49 +29,49 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/user")
-public class UserController {
+public class UserController extends BaseController {
     @Autowired
     UserService service;
     @Autowired
     RestTemplate restTemplate;
 
     @PostMapping("/add")
-    public User add() {
+    public ResultBean add() {
         long time = System.currentTimeMillis();
         User user = User.builder().userName("test-" + time).age((int) time % 50).gender(time % 2 == 0 ? "F" : "M").build();
-        return service.save(user);
+        return success(service.save(user));
     }
 
     @GetMapping("/get/{id}")
-    public User get(@PathVariable("id") Long id) {
-        return service.get(id);
+    public ResultBean get(@PathVariable("id") Long id) {
+        return success(service.get(id));
     }
 
     @GetMapping("/getByUserName/{userName}")
-    public User get(@PathVariable("userName") String userName) {
-        return service.findByUserName(userName);
+    public ResultBean get(@PathVariable("userName") String userName) {
+        return success(service.findByUserName(userName));
     }
 
 
     @GetMapping("/findAll")
-    public List<User> findAll() {
-        return service.findAll();
+    public ResultBean findAll() {
+        return success(service.findAll());
     }
 
     @GetMapping("/findByAge/{age}")
-    public List<User> findByAge(@PathVariable("age") Integer age) {
-        return service.findByAge(age);
+    public ResultBean findByAge(@PathVariable("age") Integer age) {
+        return success(service.findByAge(age));
     }
 
     @GetMapping("/findByGender/{gender}")
-    public List<User> findByGender(@PathVariable("gender") String gender) {
-        return service.findByGender(gender);
+    public ResultBean findByGender(@PathVariable("gender") String gender) {
+        return success(service.findByGender(gender));
     }
 
     @GetMapping("/rest")
-    public List<User> rest(){
+    public ResultBean rest() {
         String url = "https://localhost:8080/app/user/findAll";
-        ResponseEntity<List> result = restTemplate.getForEntity(url, List.class);
-        return result.getBody();
+        ResponseEntity<ResultBean> result = restTemplate.getForEntity(url, ResultBean.class);
+        return success(result.getBody());
     }
 }

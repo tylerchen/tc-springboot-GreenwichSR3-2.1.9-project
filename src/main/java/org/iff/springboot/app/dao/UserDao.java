@@ -7,10 +7,8 @@
  ******************************************************************************/
 package org.iff.springboot.app.dao;
 
+import org.iff.springboot.app.common.BaseDao;
 import org.iff.springboot.app.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 
 import java.util.List;
 
@@ -21,7 +19,7 @@ import java.util.List;
  * @since 2019-10-29
  * auto generate by qdp.
  */
-public interface UserDao extends JpaRepository<User, Long>, JpaSpecificationExecutor<User>, QuerydslPredicateExecutor<User> {
+public interface UserDao extends BaseDao<User> {
 
     User findByUserName(String userName);
 
