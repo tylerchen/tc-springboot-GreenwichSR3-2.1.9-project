@@ -20,7 +20,7 @@ import javax.servlet.http.HttpServletRequest;
  * @since 2019-11-01
  * auto generate by qdp.
  */
-public class BaseController {
+public abstract class BaseController {
 
     public static final String SUCCESS = "SUCCESS";
     public static final String ERROR = "ERROR";

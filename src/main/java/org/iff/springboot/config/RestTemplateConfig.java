@@ -7,8 +7,14 @@
  ******************************************************************************/
 package org.iff.springboot.config;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,6 +39,13 @@ import java.security.cert.CertificateException;
  */
 @Configuration
 public class RestTemplateConfig {
+
+    @Value("${config.rest-template.ssl.enable:false}")
+    boolean sslEnable;
+    @Value("${spring.security.user.name:}")
+    String userName;
+    @Value("${spring.security.user.password:}")
+    String password;
 
     /**
      * 绕过验证
@@ -72,42 +85,42 @@ public class RestTemplateConfig {
         return hv;
     }
 
+    private RestTemplate createRestTemplate(boolean sslEnable, String userName, String password) {
+        CloseableHttpClient httpClient = null;
+        {
+            HttpClientBuilder builder = HttpClients.custom();
+            if (sslEnable) {
+                SSLConnectionSocketFactory csf = new SSLConnectionSocketFactory(createIgnoreVerifySSL(), createHostnameVerifier());
+                builder.setSSLSocketFactory(csf);
+            }
+            if (StringUtils.isNotBlank(userName) && StringUtils.isNotBlank(password)) {
+                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(userName, password));
+                builder.setDefaultCredentialsProvider(credentialsProvider);
+            }
+            httpClient = builder.build();
+        }
+        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
+        requestFactory.setHttpClient(httpClient);
+        return new RestTemplate(requestFactory);
+    }
+
     @ConditionalOnProperty(name = "config.rest-template.load-balance.enable", havingValue = "false", matchIfMissing = true)
     @Configuration
     public class SimpleRestTemplate {
-        @Value("${config.rest-template.ssl.enable:false}")
-        boolean sslEnable;
-
         @Bean
         RestTemplate restTemplate() {
-            if (!sslEnable) {
-                return new RestTemplate();
-            }
-            SSLConnectionSocketFactory csf = new SSLConnectionSocketFactory(createIgnoreVerifySSL(), createHostnameVerifier());
-            CloseableHttpClient httpClient = HttpClients.custom().setSSLSocketFactory(csf).build();
-            HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
-            requestFactory.setHttpClient(httpClient);
-            return new RestTemplate(requestFactory);
+            return createRestTemplate(sslEnable, userName, password);
         }
     }
 
     @ConditionalOnProperty(name = "config.rest-template.load-balance.enable", havingValue = "true")
     @Configuration
     public class LoadBalancedRestTemplate {
-        @Value("${config.rest-template.ssl.enable:false}")
-        boolean sslEnable;
-
         @Bean
         @LoadBalanced
         RestTemplate restTemplate() {
-            if (!sslEnable) {
-                return new RestTemplate();
-            }
-            SSLConnectionSocketFactory csf = new SSLConnectionSocketFactory(createIgnoreVerifySSL(), createHostnameVerifier());
-            CloseableHttpClient httpClient = HttpClients.custom().setSSLSocketFactory(csf).build();
-            HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
-            requestFactory.setHttpClient(httpClient);
-            return new RestTemplate(requestFactory);
+            return createRestTemplate(sslEnable, userName, password);
         }
     }
 }

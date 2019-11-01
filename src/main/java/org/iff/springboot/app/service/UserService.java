@@ -24,10 +24,6 @@ import java.util.List;
  */
 @Service
 public class UserService extends BaseService<User, UserDao> {
-    @Autowired
-    void setDao(UserDao dao) {
-        super.dao = dao;
-    }
 
     public User get(Long id) {
         return dao.findById(id).get();

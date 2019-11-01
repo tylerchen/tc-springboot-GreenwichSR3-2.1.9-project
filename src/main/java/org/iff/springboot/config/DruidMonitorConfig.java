@@ -35,8 +35,8 @@ public class DruidMonitorConfig {
     @Bean
     public ServletRegistrationBean registrationBean(@Value("${druid.allow-ips:127.0.0.1}") String allowIps,
                                                     @Value("${druid.deny-ips:}") String denyIps,
-                                                    @Value("${druid.username:bitrade}") String username,
-                                                    @Value("${druid.password:bitrade123}") String password) {
+                                                    @Value("${druid.username:root}") String username,
+                                                    @Value("${druid.password:iff}") String password) {
         log.info("====注册Druid监控配置===");
         ServletRegistrationBean bean = new ServletRegistrationBean(new StatViewServlet(), "/druid1/*");
         /** 初始化参数配置，initParams**/

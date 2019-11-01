@@ -8,6 +8,7 @@
 package org.iff.springboot.app.common;
 
 import com.querydsl.core.types.Predicate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,7 +24,8 @@ import java.util.List;
  * @since 2019-11-01
  * auto generate by qdp.
  */
-public class BaseService<E, D extends BaseDao> {
+public abstract class BaseService<E, D extends BaseDao> {
+    @Autowired
     protected D dao;
 
     public E findById(Object id) {
